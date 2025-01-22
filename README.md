@@ -40,7 +40,7 @@ KAPPA提升5个点；ACC提升2个点；BACC提升2个点；PREC提升两个点�
 
 </br>
 
-# 指标分析（AttenSyn和GAT-Dual）
+# Evaluation（AttenSyn and GAT-Dual）
 
 在对比AttenSyn和GAT-DualAttention模型的性能时，从多个指标进行以下分析。
 
@@ -113,9 +113,9 @@ GAT-DualAttention的较高精确率表明其在减少假阳性方面更为有效
 <<<<<<< HEAD
 7. **KAPPA **
 - AttenSyn: 从0.339逐步提升到0.684。
-   
+  
 - GAT-DualAttention: 从0.349逐步提升到0.723。
-   
+  
 - 提升了**4个点**
 =======
 7. **KAPPA**

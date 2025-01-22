@@ -112,7 +112,7 @@ GAT-DualAttention的较高精确率表明其在减少假阳性方面更为有效
 
 
 
-7. **KAPPA **
+7. **KAPPA**
 
    - AttenSyn: 从0.339逐步提升到0.684。
 

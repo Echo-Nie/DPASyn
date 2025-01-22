@@ -110,12 +110,22 @@ GAT-DualAttention的较高精确率表明其在减少假阳性方面更为有效
 
 </br>
 
+<<<<<<< HEAD
 7. **KAPPA **
 - AttenSyn: 从0.339逐步提升到0.684。
    
 - GAT-DualAttention: 从0.349逐步提升到0.723。
    
 - 提升了**4个点**
+=======
+7. **KAPPA**
+
+   - AttenSyn: 从0.339逐步提升到0.684。
+
+   - GAT-DualAttention: 从0.349逐步提升到0.723。
+
+   - 提升了**4个点**
+>>>>>>> 354527123af29a4288269242d4c96be4d8e9a302
 
 
 ​					分析: Kappa系数考虑了随机一致性的影响，GAT-DualAttention的较高Kappa系数表明其分类结果与真实标签的一致性更好。

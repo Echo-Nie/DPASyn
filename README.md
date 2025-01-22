@@ -1,6 +1,6 @@
 # AttenSyn: An Attention-Based Deep Graph Neural Network forAnticancer Synergistic Drug Combination Prediction
 
-![论文结果](Images\论文结果.png)
+![论文结果](Images/论文结果.png)
 
 | Methods     | AUROC       | AUPR        | ACC         | BACC        | PREC        | TPR         | KAPPA       |
 | ----------- | ----------- | ----------- | ----------- | ----------- | ----------- | ----------- | ----------- |
@@ -18,7 +18,7 @@
 
 KAPPA提升4个点；ACC提升2个点；F1分数提升2个点
 
-![resultFinal](Images\resultFinal.png)
+![resultFinal](Images/resultFinal.png)
 
 | Methods     | AUROC  | AUPR   | ACC    | BACC        | PREC   | TPR    | KAPPA  |
 | ----------- | ------ | ------ | ------ | ----------- | ------ | ------ | ------ |

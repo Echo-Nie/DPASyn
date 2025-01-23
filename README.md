@@ -24,7 +24,7 @@ Download data.pt file from [here](https://drive.google.com/file/d/1Gqt4HxbUVILIb
 
 </br>
 
-# Reproduction
+# My Reproduction
 
 KAPPA提升5个点；ACC提升2个点；BACC提升2个点；PREC提升两个点；TPR提升3个点；F1分数提升2个点。
 
@@ -51,7 +51,7 @@ KAPPA提升5个点；ACC提升2个点；BACC提升2个点；PREC提升两个点�
    - **GAT-DualAttention**: 从0.757逐步提升到0.923。
 
 
-​					分析: AUC_dev反映了模型在开发集上的分类能力，可能是因为GAT-Dual结合了图注意力机制和双重注意力机制，能够更好地捕捉节点之间的关系和特征的重要性。
+&emsp;分析: AUC_dev反映了模型在开发集上的分类能力，可能是因为GAT-Dual结合了图注意力机制和双重注意力机制，能够更好地捕捉节点之间的关系和特征的重要性。
 
 </br>
 
@@ -62,7 +62,7 @@ KAPPA提升5个点；ACC提升2个点；BACC提升2个点；PREC提升两个点�
    - GAT-DualAttention: 从0.748逐步提升到0.915。
 
 
-​					分析: 结果差不多。
+&emsp;分析: 结果差不多。
 
 </br>
 
@@ -74,7 +74,7 @@ KAPPA提升5个点；ACC提升2个点；BACC提升2个点；PREC提升两个点�
    - 提升**2个点**
 
 
-​					分析: 准确率反映了模型在所有样本中正确分类的比例，GAT-Dual整体分类性能更好。
+&emsp;分析: 准确率反映了模型在所有样本中正确分类的比例，GAT-Dual整体分类性能更好。
 
 </br>
 
@@ -84,7 +84,7 @@ KAPPA提升5个点；ACC提升2个点；BACC提升2个点；PREC提升两个点�
 - GAT-DualAttention: 从0.671逐步提升到0.861。
 
 
-​					分析: 平衡准确率考虑了类别不平衡问题，GAT-Dual在处理不平衡数据时更为有效。
+&emsp;分析: 平衡准确率考虑了类别不平衡问题，GAT-Dual在处理不平衡数据时更为有效。
 
 </br>
 
@@ -94,7 +94,7 @@ KAPPA提升5个点；ACC提升2个点；BACC提升2个点；PREC提升两个点�
 
    - GAT-DualAttention: 从0.773逐步提升到0.853。
 
-​					分析: 但GAT-DualAttention在早期阶段的精确率更高。精确率反映了模型在预测为正类的样本中实际为正类的比例，
+&emsp;分析: 但GAT-DualAttention在早期阶段的精确率更高。精确率反映了模型在预测为正类的样本中实际为正类的比例，
 GAT-DualAttention的较高精确率表明其在减少假阳性方面更为有效。
 
 </br>
@@ -106,18 +106,10 @@ GAT-DualAttention的较高精确率表明其在减少假阳性方面更为有效
    - GAT-DualAttention: 从0.463逐步提升到0.854。
 
 
-​					分析: TPR反映了模型在正类样本中正确识别的比例，GCN-三头注意力机制的较高TPR表明其在捕捉正类样本方面更为敏感。
+&emsp;分析: TPR反映了模型在正类样本中正确识别的比例，GCN-三头注意力机制的较高TPR表明其在捕捉正类样本方面更为敏感。
 
 </br>
 
-<<<<<<< HEAD
-7. **KAPPA **
-- AttenSyn: 从0.339逐步提升到0.684。
-  
-- GAT-DualAttention: 从0.349逐步提升到0.723。
-  
-- 提升了**4个点**
-=======
 7. **KAPPA**
 
    - AttenSyn: 从0.339逐步提升到0.684。
@@ -125,10 +117,9 @@ GAT-DualAttention的较高精确率表明其在减少假阳性方面更为有效
    - GAT-DualAttention: 从0.349逐步提升到0.723。
 
    - 提升了**4个点**
->>>>>>> 354527123af29a4288269242d4c96be4d8e9a302
 
 
-​					分析: Kappa系数考虑了随机一致性的影响，GAT-DualAttention的较高Kappa系数表明其分类结果与真实标签的一致性更好。
+&emsp;分析: Kappa系数考虑了随机一致性的影响，GAT-DualAttention的较高Kappa系数表明其分类结果与真实标签的一致性更好。
 
 </br>
 
@@ -139,7 +130,7 @@ GAT-DualAttention的较高精确率表明其在减少假阳性方面更为有效
    - GAT-DualAttention: 从0.463逐步提升到0.854。
 
 
-​					分析: 差不多，初期GAT-Dual更差
+&emsp;分析: 差不多，初期GAT-Dual更差
 
 </br>
 
@@ -152,4 +143,4 @@ GAT-DualAttention的较高精确率表明其在减少假阳性方面更为有效
    - 最终提升**2个点**
 
 
-​					分析:F1 Score是精确率和召回率的调和平均数，表明GAT-Dual其在平衡精确率和召回率方面更为有效。
+&emsp;分析:F1 Score是精确率和召回率的调和平均数，表明GAT-Dual其在平衡精确率和召回率方面更为有效。

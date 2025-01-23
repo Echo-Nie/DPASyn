@@ -1,5 +1,7 @@
 # AttenSyn: An Attention-Based Deep Graph Neural Network forAnticancer Synergistic Drug Combination Prediction
 
+![paper](Images/paper.png)
+
 # Data
 
 Download data.pt file from [here](https://drive.google.com/file/d/1Gqt4HxbUVILIbp17L6e_zLGA_3sVKOw1/view?usp=sharing), and put it into data directory  

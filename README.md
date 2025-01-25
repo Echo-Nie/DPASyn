@@ -72,4 +72,3 @@ Download data.pt file from [here](https://drive.google.com/file/d/1Gqt4HxbUVILIb
 9. Precision指标：AttenSyn的Precision为0.84，GAT-Dual是0.85
 10. F1 Score指标：AttenSyn的F1 Score为0.83，GAT-Dual提升至0.85，在精确率和召回率之间取得了更好的平衡。
 
-

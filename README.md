@@ -28,13 +28,13 @@ Download data.pt file from [here](https://drive.google.com/file/d/1Gqt4HxbUVILIb
 
 # My Reproduction
 
-**Final Result：**KAPPA提升5个点；ACC提升2个点；BACC提升2个点；PREC提升两个点；TPR提升3个点；F1分数提升2个点。
+**Final Result**：KAPPA提升5个点；ACC提升2个点；BACC提升2个点；PREC提升两个点；TPR提升3个点；F1分数提升2个点。
 
 </br>
 
 ## First edition：
 
-![resultFirst](Images\resultFirst.png)
+![resultFirst](Images/resultFirst.png)
 
 | Methods  | AUROC  |  AUPR  |  ACC   |  BACC  |  PREC  |  TPR   | KAPPA  |
 | :------: | :----: | :----: | :----: | :----: | :----: | :----: | :----: |

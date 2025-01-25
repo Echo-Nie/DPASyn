@@ -34,7 +34,7 @@ Download data.pt file from [here](https://drive.google.com/file/d/1Gqt4HxbUVILIb
 
 ## First edition：
 
-![resultFinal](Images\resultFirst.png)
+![resultFirst](Images\resultFirst.png)
 
 | Methods  | AUROC  |  AUPR  |  ACC   |  BACC  |  PREC  |  TPR   | KAPPA  |
 | :------: | :----: | :----: | :----: | :----: | :----: | :----: | :----: |

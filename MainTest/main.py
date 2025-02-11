@@ -67,7 +67,7 @@ print(modeling.__name__)
 
 TRAIN_BATCH_SIZE = 128
 TEST_BATCH_SIZE = 128
-LR = 0.0009
+LR = 0.0005
 LOG_INTERVAL = 20
 NUM_EPOCHS = 120
 
@@ -123,7 +123,7 @@ for i in range(5):
         # 每 120 个 epoch 保存一次结果
         if (epoch + 1) % 120 == 0:
             current_lr = optimizer.param_groups[0]['lr']
-            file_result = f'./NewResult/GAT-atten_lr_{current_lr}_fold_{i}.csv'
+            file_result = f'./Result/GAT-atten_dropout_0_lr_{current_lr}_fold_{i}.csv'
             save_AUCs(AUCs, file_result)
 
         # 更新最佳准确率

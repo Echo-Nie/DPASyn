@@ -57,7 +57,7 @@ class AttenSyn(nn.Module):
             molecule_channels: int = 78,
             hidden_channels: int = 128,
             middle_channels: int = 64,
-            layer_count: int = 4,
+            layer_count: int = 2,
             out_channels: int = 2,
             dropout_rate: float = 0.2,
             heads: int = 4,

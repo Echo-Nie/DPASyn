@@ -85,11 +85,11 @@ modeling = AttenSyn
 print(modeling.__name__)
 
 # 超参数设置
-TRAIN_BATCH_SIZE = 128  # 训练批次大小
-TEST_BATCH_SIZE = 128  # 测试批次大小
+TRAIN_BATCH_SIZE = 256  # 训练批次大小
+TEST_BATCH_SIZE = 256  # 测试批次大小
 LR = 0.0005  # 学习率
 LOG_INTERVAL = 20  # 日志打印间隔
-NUM_EPOCHS = 100  # 训练轮数
+NUM_EPOCHS = 200  # 训练轮数
 
 print('Learning rate: ', LR)
 print('Epochs: ', NUM_EPOCHS)

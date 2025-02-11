@@ -4,7 +4,6 @@ import numpy as np
 import torch
 from torch import nn, optim
 from torch.utils.data import DataLoader
-from sklearn import metrics
 from sklearn.metrics import accuracy_score
 
 # 假设这些模块已经定义
@@ -24,7 +23,7 @@ torch.backends.cudnn.benchmark = False
 HYPERPARAM_SPACE = {
     'learning_rate': [0.001, 0.0005, 0.0001, 0.00005],
     'batch_size': [128, 256, 512],
-    'num_epochs': [80, 90, 100, 120],
+    'num_epochs': [80, 80, 80, 80 ],
     'dropout_rate': [0.1, 0.3, 0.5]
 }
 

@@ -2,16 +2,13 @@ import random
 import time
 
 from torch import amp
-
-from NewTechnology.SynPredTest.utils.util import MyDataset, save_AUCs, collate
+from NewTechnology.SynPredTest.utils import *
 from model import *
-from utils import *
 from sklearn.metrics import roc_curve, confusion_matrix
 from sklearn.metrics import cohen_kappa_score, accuracy_score, roc_auc_score, precision_score, recall_score, \
     balanced_accuracy_score, f1_score
 from sklearn import metrics
 from torch.utils.data import DataLoader
-
 # 设置随机种子，确保实验可重复
 SEED = 0
 random.seed(SEED)
@@ -89,7 +86,7 @@ TRAIN_BATCH_SIZE = 256  # 训练批次大小
 TEST_BATCH_SIZE = 256  # 测试批次大小
 LR = 0.0005  # 学习率
 LOG_INTERVAL = 20  # 日志打印间隔
-NUM_EPOCHS = 200  # 训练轮数
+NUM_EPOCHS = 120  # 训练轮数
 
 print('Learning rate: ', LR)
 print('Epochs: ', NUM_EPOCHS)

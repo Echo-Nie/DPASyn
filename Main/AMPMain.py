@@ -13,7 +13,7 @@ from sklearn import metrics
 from torch.utils.data import DataLoader
 
 # 设置随机种子，确保实验可重复
-SEED = 42
+SEED = 0
 random.seed(SEED)
 np.random.seed(SEED)
 torch.manual_seed(SEED)

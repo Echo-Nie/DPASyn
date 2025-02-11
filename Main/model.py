@@ -5,7 +5,6 @@ from torch.nn import Sequential, Linear, ReLU
 from torch_geometric.nn import GATConv, GCNConv
 import numpy as np
 
-
 class DualAttention(nn.Module):
     def __init__(self, dim, num_heads=4):
         super(DualAttention, self).__init__()
@@ -50,17 +49,16 @@ class DualAttention(nn.Module):
 
         return vector1, vector2
 
-
 class AttenSyn(nn.Module):
     def __init__(
-            self,
-            molecule_channels: int = 78,
-            hidden_channels: int = 128,
-            middle_channels: int = 64,
-            layer_count: int = 4,
-            out_channels: int = 2,
-            dropout_rate: float = 0.2,
-            heads: int = 4,
+        self,
+        molecule_channels: int = 78,
+        hidden_channels: int = 128,
+        middle_channels: int = 64,
+        layer_count: int = 2,
+        out_channels: int = 2,
+        dropout_rate: float = 0.2,
+        heads: int = 4,
     ):
         super().__init__()
 
@@ -70,10 +68,6 @@ class AttenSyn(nn.Module):
             self.graph_convolutions.append(GATConv(hidden_channels, hidden_channels // heads, heads=heads))
 
         self.border_rnn = torch.nn.LSTM(hidden_channels, hidden_channels, 1)
-
-        # 添加残差连接相关层
-        self.residual1 = nn.Linear(hidden_channels, hidden_channels)
-        self.residual2 = nn.Linear(hidden_channels * 2, hidden_channels * 2)
 
         self.reduction = nn.Sequential(
             nn.Linear(954, 2048),
@@ -110,10 +104,6 @@ class AttenSyn(nn.Module):
         gcn_hidden = conv(x, edge_index)
         rnn_out, (hidden_state, cell_state) = self.border_rnn(gcn_hidden.unsqueeze(0), states)
         rnn_out = rnn_out.squeeze(0)
-
-        # 应用残差连接
-        gcn_hidden = F.relu(gcn_hidden + self.residual1(x))  # 添加残差连接
-
         return gcn_hidden, rnn_out, (hidden_state, cell_state)
 
     def forward(self, molecules_left, molecules_right):
@@ -160,11 +150,6 @@ class AttenSyn(nn.Module):
         )
         gcn_hidden_left, gcn_hidden_right = self.pool2(gcn_hidden_left, gcn_hidden_right, (mask1, mask2))
         shared_graph_level = torch.cat([gcn_hidden_left, gcn_hidden_right], dim=1)
-
-        # 添加残差连接
-        shared_graph_level = F.relu(
-            shared_graph_level + self.residual2(torch.cat([rnn_pooled_left, rnn_pooled_right], dim=1)))
-
-        out = torch.cat([shared_graph_level, cell], dim=1)
+        out = torch.cat([shared_graph_level, rnn_pooled_left, rnn_pooled_right, cell], dim=1)
         out = self.final(out)
         return out

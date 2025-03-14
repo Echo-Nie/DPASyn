@@ -137,7 +137,7 @@ for i in range(5):
         F1 = f1_score(T, Y)
         AUCs = [epoch, ACC, PR_AUC, AUC, BACC, PREC, TPR, KAPPA, recall, precision, F1]
 
-        # save data
+        # save data1
 
         if best_acc < ACC:
             best_acc = ACC

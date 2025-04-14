@@ -1,6 +1,7 @@
 import random
+import time
 from model import *
-from NewTechnology.SynPredTest.utils.util import *
+from NewTechnology.SynPredTest.utils import *
 from sklearn.metrics import confusion_matrix
 from sklearn.metrics import cohen_kappa_score, accuracy_score, roc_auc_score, precision_score, recall_score, balanced_accuracy_score, f1_score
 from sklearn import metrics
@@ -16,6 +17,7 @@ torch.backends.cudnn.benchmark = False
 
 def train(model, device, train_loader, optimizer, epoch):
     model.train()
+    start_memory = torch.cuda.memory_allocated(device)  # 记录训练前的内存使用量
     criterion = nn.CrossEntropyLoss()
     aux_criterion = nn.MSELoss()
 
@@ -42,6 +44,10 @@ def train(model, device, train_loader, optimizer, epoch):
         if batch_idx % 10 == 0:
             print(f'Train Epoch: {epoch} [{batch_idx * len(data1)}/{len(train_loader.dataset)} '
                   f'({100. * batch_idx / len(train_loader):.0f}%)]\tLoss: {loss.item():.6f}')
+
+        end_memory = torch.cuda.memory_allocated(device)  # 记录训练后的内存使用量
+        memory_usage_mb = (end_memory - start_memory) / (1024 ** 2)  # 计算内存增量，单位为MB
+        print(f'Training memory usage for epoch {epoch}: {memory_usage_mb:.2f} MB')
 
 def predicting(model, device, loader_test):
     model.eval()
@@ -102,6 +108,7 @@ for i in range(5):
 
     best_acc = 0
     for epoch in range(NUM_EPOCHS):
+        epoch_start_time = time.time()  # 记录每个 epoch 的开始时间
         train(model, device, loader_train, optimizer, epoch + 1)
         T, S, Y = predicting(model, device, loader_test)
 
@@ -130,6 +137,10 @@ for i in range(5):
         if best_acc < ACC:
             best_acc = ACC
 
+        epoch_end_time = time.time()
+        epoch_duration = epoch_end_time - epoch_start_time
+        # 打印每个 epoch 的运行时间
+        print(f'Epoch {epoch + 1} completed in {epoch_duration:.2f} seconds.')
         # 调整学习率
         scheduler.step()
 

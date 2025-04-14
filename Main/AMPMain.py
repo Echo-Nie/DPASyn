@@ -23,6 +23,7 @@ def train(model, device, loader_train, optimizer, epoch, scaler):
     """训练函数"""
     print('Training on {} samples...'.format(len(loader_train.dataset)))
     model.train()  # 设置模型为训练模式
+    start_memory = torch.cuda.memory_allocated(device)  # 记录训练前的内存使用量
     for batch_idx, (data1, data2, y) in enumerate(loader_train):
         # 将数据移动到设备（GPU或CPU）
         data1 = data1.to(device)
@@ -45,6 +46,9 @@ def train(model, device, loader_train, optimizer, epoch, scaler):
             print('Train epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f}'.format(
                 epoch, batch_idx * len(data1.x), len(loader_train.dataset),
                        100. * batch_idx / len(loader_train), loss.item()))
+        end_memory = torch.cuda.memory_allocated(device)  # 记录训练后的内存使用量
+        memory_usage_mb = (end_memory - start_memory) / (1024 ** 2)  # 计算内存增量，单位为MB
+        print(f'Training memory usage for epoch {epoch}: {memory_usage_mb:.2f} MB')
 
 
 def predicting(model, device, loader_test):

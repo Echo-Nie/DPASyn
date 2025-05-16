@@ -1,15 +1,20 @@
 import random
 import time
-
-from torch import amp
-from NewTechnology.SynPredTest.utils import *
-from model import *
-from sklearn.metrics import roc_curve, confusion_matrix
-from sklearn.metrics import cohen_kappa_score, accuracy_score, roc_auc_score, precision_score, recall_score, \
-    balanced_accuracy_score, f1_score
-from sklearn import metrics
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
 from torch.utils.data import DataLoader
-# 设置随机种子，确保实验可重复
+from torch import amp
+from sklearn.metrics import (
+    roc_curve, confusion_matrix, cohen_kappa_score, accuracy_score,
+    roc_auc_score, precision_score, recall_score, balanced_accuracy_score,
+    f1_score
+)
+from sklearn import metrics
+from NewTechnology.SynPredTest.utils import MyDataset, save_AUCs, collate
+from models.model_GAT_dual_attention import MolecularInteractionModel
+
+# Set random seeds for reproducibility
 SEED = 0
 random.seed(SEED)
 np.random.seed(SEED)
@@ -18,160 +23,166 @@ torch.cuda.manual_seed_all(SEED)
 torch.backends.cudnn.deterministic = True
 torch.backends.cudnn.benchmark = False
 
-
-def train(model, device, loader_train, optimizer, epoch, scaler):
-    """训练函数"""
-    print('Training on {} samples...'.format(len(loader_train.dataset)))
-    model.train()  # 设置模型为训练模式
-    start_memory = torch.cuda.memory_allocated(device)  # 记录训练前的内存使用量
-    for batch_idx, (data1, data2, y) in enumerate(loader_train):
-        # 将数据移动到设备（GPU或CPU）
-        data1 = data1.to(device)
-        data2 = data2.to(device)
-        y = y.to(device)
-        optimizer.zero_grad()  # 梯度清零
-
-        # 使用自动混合精度（AMP）加速训练
+def train_model(model, device, train_loader, optimizer, epoch, scaler):
+    """Train the model for one epoch."""
+    print(f'Training on {len(train_loader.dataset)} samples...')
+    model.train()
+    start_memory = torch.cuda.memory_allocated(device)
+    
+    for batch_idx, (left_molecule, right_molecule, labels) in enumerate(train_loader):
+        # Move data to device
+        left_molecule = left_molecule.to(device)
+        right_molecule = right_molecule.to(device)
+        labels = labels.to(device)
+        
+        # Clear gradients
+        optimizer.zero_grad()
+        
+        # Forward pass with automatic mixed precision
         with torch.amp.autocast("cuda", enabled=True):
-            output = model(data1, data2)  # 前向传播
-            loss = loss_fn(output, y)  # 计算损失
-
-        # 反向传播和参数更新
+            predictions = model(left_molecule, right_molecule)
+            loss = nn.CrossEntropyLoss()(predictions, labels)
+        
+        # Backward pass and optimization
         scaler.scale(loss).backward()
         scaler.step(optimizer)
         scaler.update()
-
-        # 每隔一定步数打印训练信息
+        
+        # Log training progress
         if batch_idx % LOG_INTERVAL == 0:
-            print('Train epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f}'.format(
-                epoch, batch_idx * len(data1.x), len(loader_train.dataset),
-                       100. * batch_idx / len(loader_train), loss.item()))
-        end_memory = torch.cuda.memory_allocated(device)  # 记录训练后的内存使用量
-        memory_usage_mb = (end_memory - start_memory) / (1024 ** 2)  # 计算内存增量，单位为MB
-        print(f'Training memory usage for epoch {epoch}: {memory_usage_mb:.2f} MB')
+            print(f'Train epoch: {epoch} [{batch_idx * len(left_molecule.x)}/{len(train_loader.dataset)} '
+                  f'({100. * batch_idx / len(train_loader):.0f}%)]\tLoss: {loss.item():.6f}')
+    
+    # Log memory usage
+    end_memory = torch.cuda.memory_allocated(device)
+    memory_usage_mb = (end_memory - start_memory) / (1024 ** 2)
+    print(f'Training memory usage for epoch {epoch}: {memory_usage_mb:.2f} MB')
 
-
-def predicting(model, device, loader_test):
-    """预测函数"""
-    model.eval()  # 设置模型为评估模式
-    total_preds = torch.Tensor()  # 存储所有预测得分
-    total_labels = torch.Tensor()  # 存储所有真实标签
-    total_prelabels = torch.Tensor()  # 存储所有预测标签
-    print('Make prediction for {} samples...'.format(len(loader_test.dataset)))
-    with torch.no_grad():  # 禁用梯度计算
-        for data1, data2, y in loader_test:
-            # 将数据移动到设备（GPU或CPU）
-            data1 = data1.to(device)
-            data2 = data2.to(device)
-
-            # 使用自动混合精度（AMP）加速预测
+def evaluate_model(model, device, test_loader):
+    """Evaluate the model on the test set."""
+    model.eval()
+    all_predictions = torch.Tensor()
+    all_labels = torch.Tensor()
+    all_predicted_labels = torch.Tensor()
+    
+    print(f'Evaluating on {len(test_loader.dataset)} samples...')
+    with torch.no_grad():
+        for left_molecule, right_molecule, labels in test_loader:
+            # Move data to device
+            left_molecule = left_molecule.to(device)
+            right_molecule = right_molecule.to(device)
+            
+            # Forward pass with automatic mixed precision
             with torch.amp.autocast('cuda', enabled=True):
-                output = model(data1, data2)  # 前向传播
+                predictions = model(left_molecule, right_molecule)
+            
+            # Process predictions
+            probabilities = F.softmax(predictions, 1).to('cpu').data.numpy()
+            predicted_labels = list(map(lambda x: np.argmax(x), probabilities))
+            prediction_scores = list(map(lambda x: x[1], probabilities))
+            
+            # Concatenate results
+            all_predictions = torch.cat((all_predictions, torch.Tensor(prediction_scores)), 0)
+            all_predicted_labels = torch.cat((all_predicted_labels, torch.Tensor(predicted_labels)), 0)
+            all_labels = torch.cat((all_labels, labels.view(-1, 1)), 0)
+    
+    return all_labels.numpy().flatten(), all_predictions.numpy().flatten(), all_predicted_labels.numpy().flatten()
 
-            # 对输出进行softmax处理，得到预测概率
-            ys = F.softmax(output, 1).to('cpu').data.numpy()
-            # 获取预测标签和预测得分
-            predicted_labels = list(map(lambda x: np.argmax(x), ys))
-            predicted_scores = list(map(lambda x: x[1], ys))
-            # 将结果拼接起来
-            total_preds = torch.cat((total_preds, torch.Tensor(predicted_scores)), 0)
-            total_prelabels = torch.cat((total_prelabels, torch.Tensor(predicted_labels)), 0)
-            total_labels = torch.cat((total_labels, y.view(-1, 1)), 0)
-    # 返回真实标签、预测得分和预测标签
-    return total_labels.numpy().flatten(), total_preds.numpy().flatten(), total_prelabels.numpy().flatten()
+def calculate_metrics(true_labels, prediction_scores, predicted_labels):
+    """Calculate all evaluation metrics."""
+    metrics_dict = {
+        'AUC': roc_auc_score(true_labels, prediction_scores),
+        'PR_AUC': metrics.auc(*metrics.precision_recall_curve(true_labels, prediction_scores)[:2]),
+        'BACC': balanced_accuracy_score(true_labels, predicted_labels),
+        'ACC': accuracy_score(true_labels, predicted_labels),
+        'KAPPA': cohen_kappa_score(true_labels, predicted_labels),
+        'RECALL': recall_score(true_labels, predicted_labels),
+        'PRECISION': precision_score(true_labels, predicted_labels),
+        'F1': f1_score(true_labels, predicted_labels)
+    }
+    
+    # Calculate TPR from confusion matrix
+    tn, fp, fn, tp = confusion_matrix(true_labels, predicted_labels).ravel()
+    metrics_dict['TPR'] = tp / (tp + fn)
+    
+    return metrics_dict
 
+def main():
+    # Hyperparameters
+    TRAIN_BATCH_SIZE = 256
+    TEST_BATCH_SIZE = 256
+    LEARNING_RATE = 0.0005
+    LOG_INTERVAL = 20
+    NUM_EPOCHS = 120
+    NUM_FOLDS = 5
+    
+    print(f'Learning rate: {LEARNING_RATE}')
+    print(f'Epochs: {NUM_EPOCHS}')
+    
+    # Set device
+    device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
+    
+    # Load dataset
+    dataset = MyDataset()
+    dataset_size = len(dataset)
+    fold_size = int(dataset_size / NUM_FOLDS)
+    print(f'Dataset size: {dataset_size}')
+    print(f'Fold size: {fold_size}')
+    
+    # Random shuffle indices
+    indices = random.sample(range(dataset_size), dataset_size)
+    
+    # Cross-validation
+    for fold in range(NUM_FOLDS):
+        print(f'\n=== Starting Fold {fold + 1}/{NUM_FOLDS} ===')
+        
+        # Split data
+        test_indices = indices[fold * fold_size:(fold + 1) * fold_size]
+        train_indices = indices[:fold * fold_size] + indices[(fold + 1) * fold_size:]
+        
+        # Create data loaders
+        train_data = dataset.get_data(train_indices)
+        test_data = dataset.get_data(test_indices)
+        train_loader = DataLoader(train_data, batch_size=TRAIN_BATCH_SIZE, shuffle=True, collate_fn=collate)
+        test_loader = DataLoader(test_data, batch_size=TEST_BATCH_SIZE, shuffle=False, collate_fn=collate)
+        
+        # Initialize model and training components
+        model = MolecularInteractionModel().to(device)
+        optimizer = torch.optim.Adam(model.parameters(), lr=LEARNING_RATE)
+        scaler = torch.amp.GradScaler(enabled=True)
+        
+        # Setup result file
+        result_file = f'../result/MolecularInteraction-lr{LEARNING_RATE:.4f}-fold{fold}.csv'
+        with open(result_file, 'w') as f:
+            f.write('Epoch,ACC,PR_AUC,AUC,BACC,PREC,TPR,KAPPA,RECALL,Precision,F1\n')
+        
+        # Training loop
+        best_accuracy = 0
+        for epoch in range(NUM_EPOCHS):
+            epoch_start_time = time.time()
+            
+            # Train and evaluate
+            train_model(model, device, train_loader, optimizer, epoch + 1, scaler)
+            true_labels, prediction_scores, predicted_labels = evaluate_model(model, device, test_loader)
+            
+            # Calculate metrics
+            metrics_dict = calculate_metrics(true_labels, prediction_scores, predicted_labels)
+            
+            # Save results if improved
+            if metrics_dict['ACC'] > best_accuracy:
+                best_accuracy = metrics_dict['ACC']
+                metrics_list = [
+                    epoch, metrics_dict['ACC'], metrics_dict['PR_AUC'],
+                    metrics_dict['AUC'], metrics_dict['BACC'], metrics_dict['PRECISION'],
+                    metrics_dict['TPR'], metrics_dict['KAPPA'], metrics_dict['RECALL'],
+                    metrics_dict['PRECISION'], metrics_dict['F1']
+                ]
+                save_AUCs(metrics_list, result_file)
+            
+            # Log epoch completion
+            epoch_duration = time.time() - epoch_start_time
+            print(f'Epoch {epoch + 1} completed in {epoch_duration:.2f} seconds')
+            print(f'Best accuracy: {best_accuracy:.4f}')
 
-# 定义模型
-modeling = AttenSyn
-print(modeling.__name__)
-
-# 超参数设置
-TRAIN_BATCH_SIZE = 256  # 训练批次大小
-TEST_BATCH_SIZE = 256  # 测试批次大小
-LR = 0.0005  # 学习率
-LOG_INTERVAL = 20  # 日志打印间隔
-NUM_EPOCHS = 120  # 训练轮数
-
-print('Learning rate: ', LR)
-print('Epochs: ', NUM_EPOCHS)
-
-# 设置设备（GPU或CPU）
-device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
-
-# 加载数据集
-dataset = MyDataset()
-
-# 计算数据集长度和划分比例
-lenth = len(dataset)
-pot = int(lenth / 5)
-print('lenth', lenth)
-print('pot', pot)
-
-# 随机打乱数据集
-random_num = random.sample(range(0, lenth), lenth)
-
-# 5折交叉验证
-for i in range(5):
-    # 划分训练集和测试集
-    test_num = random_num[pot * i:pot * (i + 1)]
-    train_num = random_num[:pot * i] + random_num[pot * (i + 1):]
-
-    # 获取训练数据和测试数据
-    data_train = dataset.get_data(train_num)
-    data_test = dataset.get_data(test_num)
-    # 创建数据加载器
-    loader_train = DataLoader(data_train, batch_size=TRAIN_BATCH_SIZE, shuffle=True, collate_fn=collate)
-    loader_test = DataLoader(data_test, batch_size=TRAIN_BATCH_SIZE, shuffle=False, collate_fn=collate)
-
-    # 初始化模型、损失函数和优化器
-    model = modeling().to(device)
-    loss_fn = nn.CrossEntropyLoss()
-    optimizer = torch.optim.Adam(model.parameters(), lr=LR)
-
-    # 定义结果文件路径
-    file_result = '../result/DualGAT-AMP-lr{:0.4f}'.format(LR) + str(i) + '.csv'
-    # 写入表头
-    AUCs = ('Epoch,ACC,PR_AUC,AUC,BACC,PREC,TPR,KAPPA,RECALL,Precision,F1')
-    with open(file_result, 'w') as f:
-        f.write(AUCs + '\n')
-
-    best_acc = 0  # 记录最佳AUC值
-    scaler = torch.amp.GradScaler(enabled=amp)
-
-    for epoch in range(NUM_EPOCHS):
-        epoch_start_time = time.time()  # 记录每个 epoch 的开始时间
-
-        # 训练模型
-        train(model, device, loader_train, optimizer, epoch + 1, scaler)
-
-        # 在测试集上进行预测
-        T, S, Y = predicting(model, device, loader_test)
-
-        # 计算性能指标
-        AUC = roc_auc_score(T, S)  # 计算AUC
-        precision, recall, threshold = metrics.precision_recall_curve(T, S)
-        PR_AUC = metrics.auc(recall, precision)  # 计算PR-AUC
-        BACC = balanced_accuracy_score(T, Y)  # 计算平衡准确率
-        tn, fp, fn, tp = confusion_matrix(T, Y).ravel()  # 计算混淆矩阵
-        TPR = tp / (tp + fn)  # 计算真正率
-        PREC = precision_score(T, Y)  # 计算精确率
-        ACC = accuracy_score(T, Y)  # 计算准确率
-        KAPPA = cohen_kappa_score(T, Y)  # 计算Kappa系数
-        recall = recall_score(T, Y)  # 计算召回率
-        precision = precision_score(T, Y)  # 计算精确率
-        F1 = f1_score(T, Y)  # 计算F1分数
-        AUCs = [epoch, ACC, PR_AUC, AUC, BACC, PREC, TPR, KAPPA, recall, precision, F1]
-
-        # 保存数据
-        if best_acc < ACC:
-            best_acc = ACC  # 更新最佳ACC值
-            save_AUCs(AUCs, file_result)  # 保存结果到CSV文件
-
-        # 计算每个 epoch 的结束时间
-        epoch_end_time = time.time()
-        epoch_duration = epoch_end_time - epoch_start_time
-        # 打印每个 epoch 的运行时间
-        print(f'Epoch {epoch + 1} completed in {epoch_duration:.2f} seconds.')
-
-        # 打印最佳AUC值
-        print('best_acc', best_acc)
+if __name__ == '__main__':
+    main()

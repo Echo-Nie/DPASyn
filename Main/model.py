@@ -6,150 +6,189 @@ from torch_geometric.nn import GATConv, GCNConv
 import numpy as np
 
 class DualAttention(nn.Module):
-    def __init__(self, dim, num_heads=4):
+    def __init__(self, feature_dim, num_attention_heads=4):
         super(DualAttention, self).__init__()
-        self.num_heads = num_heads
-        self.dim_per_head = dim // num_heads
+        self.num_attention_heads = num_attention_heads
+        self.head_dim = feature_dim // num_attention_heads
 
-        self.linear_q = nn.Linear(dim, self.dim_per_head * num_heads)
-        self.linear_k = nn.Linear(dim, self.dim_per_head * num_heads)
-        self.linear_v = nn.Linear(dim, self.dim_per_head * num_heads)
+        # Query, Key, Value projections for both directions
+        self.query_proj = nn.Linear(feature_dim, self.head_dim * num_attention_heads)
+        self.key_proj = nn.Linear(feature_dim, self.head_dim * num_attention_heads)
+        self.value_proj = nn.Linear(feature_dim, self.head_dim * num_attention_heads)
 
-        self.norm = nn.LayerNorm(dim)
-        self.dropout = nn.Dropout(p=0.2)
+        self.layer_norm = nn.LayerNorm(feature_dim)
+        self.attention_dropout = nn.Dropout(p=0.2)
 
-    def attention(self, q1, k1, v1, q2, k2, v2, attn_mask=None):
-        a1 = torch.tanh(torch.bmm(k1, q2.transpose(1, 2)))
-        a2 = torch.tanh(torch.bmm(k2, q1.transpose(1, 2)))
+    def compute_attention(self, query_1, key_1, value_1, query_2, key_2, value_2, attention_mask=None):
+        # Compute attention scores
+        attention_scores_1 = torch.tanh(torch.bmm(key_1, query_2.transpose(1, 2)))
+        attention_scores_2 = torch.tanh(torch.bmm(key_2, query_1.transpose(1, 2)))
 
-        if attn_mask is not None:
-            mask1, mask2 = attn_mask
-            a1 = torch.softmax(torch.sum(a1, dim=2).masked_fill(mask1, -np.inf), dim=-1).unsqueeze(dim=1)
-            a2 = torch.softmax(torch.sum(a2, dim=2).masked_fill(mask2, -np.inf), dim=-1).unsqueeze(dim=1)
+        if attention_mask is not None:
+            mask_1, mask_2 = attention_mask
+            attention_weights_1 = torch.softmax(
+                torch.sum(attention_scores_1, dim=2).masked_fill(mask_1, -np.inf), 
+                dim=-1
+            ).unsqueeze(dim=1)
+            attention_weights_2 = torch.softmax(
+                torch.sum(attention_scores_2, dim=2).masked_fill(mask_2, -np.inf), 
+                dim=-1
+            ).unsqueeze(dim=1)
         else:
-            a1 = torch.softmax(torch.sum(a1, dim=2), dim=1).unsqueeze(dim=1)
-            a2 = torch.softmax(torch.sum(a2, dim=2), dim=1).unsqueeze(dim=1)
+            attention_weights_1 = torch.softmax(torch.sum(attention_scores_1, dim=2), dim=1).unsqueeze(dim=1)
+            attention_weights_2 = torch.softmax(torch.sum(attention_scores_2, dim=2), dim=1).unsqueeze(dim=1)
 
-        a1 = self.dropout(a1)
-        a2 = self.dropout(a2)
+        attention_weights_1 = self.attention_dropout(attention_weights_1)
+        attention_weights_2 = self.attention_dropout(attention_weights_2)
 
-        vector1 = torch.bmm(a1, v1).squeeze()
-        vector2 = torch.bmm(a2, v2).squeeze()
+        context_vector_1 = torch.bmm(attention_weights_1, value_1).squeeze()
+        context_vector_2 = torch.bmm(attention_weights_2, value_2).squeeze()
 
-        return vector1, vector2
+        return context_vector_1, context_vector_2
 
-    def forward(self, x1, x2, attn_mask=None):
-        q1, k1, v1 = torch.relu(self.linear_q(x1)), torch.relu(self.linear_k(x1)), torch.relu(self.linear_v(x1))
-        q2, k2, v2 = torch.relu(self.linear_q(x2)), torch.relu(self.linear_k(x2)), torch.relu(self.linear_v(x2))
+    def forward(self, features_1, features_2, attention_mask=None):
+        # Project features to query, key, value
+        query_1 = torch.relu(self.query_proj(features_1))
+        key_1 = torch.relu(self.key_proj(features_1))
+        value_1 = torch.relu(self.value_proj(features_1))
 
-        vector1, vector2 = self.attention(q1, k1, v1, q2, k2, v2, attn_mask)
+        query_2 = torch.relu(self.query_proj(features_2))
+        key_2 = torch.relu(self.key_proj(features_2))
+        value_2 = torch.relu(self.value_proj(features_2))
 
-        vector1 = self.norm(torch.mean(x1, dim=1) + vector1)
-        vector2 = self.norm(torch.mean(x2, dim=1) + vector2)
+        context_vector_1, context_vector_2 = self.compute_attention(
+            query_1, key_1, value_1, query_2, key_2, value_2, attention_mask
+        )
 
-        return vector1, vector2
+        # Residual connection and normalization
+        context_vector_1 = self.layer_norm(torch.mean(features_1, dim=1) + context_vector_1)
+        context_vector_2 = self.layer_norm(torch.mean(features_2, dim=1) + context_vector_2)
 
-class AttenSyn(nn.Module):
+        return context_vector_1, context_vector_2
+
+class MolecularInteractionModel(nn.Module):
     def __init__(
         self,
-        molecule_channels: int = 78,
-        hidden_channels: int = 128,
-        middle_channels: int = 64,
-        layer_count: int = 2,
-        out_channels: int = 2,
-        dropout_rate: float = 0.2,
-        heads: int = 4,
+        input_feature_dim: int = 78,
+        hidden_feature_dim: int = 128,
+        intermediate_dim: int = 64,
+        num_graph_layers: int = 2,
+        output_dim: int = 2,
+        dropout_prob: float = 0.2,
+        num_attention_heads: int = 4,
     ):
         super().__init__()
 
-        self.graph_convolutions = torch.nn.ModuleList()
-        self.graph_convolutions.append(GATConv(molecule_channels, hidden_channels // heads, heads=heads))
-        for _ in range(1, layer_count):
-            self.graph_convolutions.append(GATConv(hidden_channels, hidden_channels // heads, heads=heads))
+        # Graph attention layers
+        self.graph_attention_layers = torch.nn.ModuleList()
+        self.graph_attention_layers.append(
+            GATConv(input_feature_dim, hidden_feature_dim // num_attention_heads, heads=num_attention_heads)
+        )
+        for _ in range(1, num_graph_layers):
+            self.graph_attention_layers.append(
+                GATConv(hidden_feature_dim, hidden_feature_dim // num_attention_heads, heads=num_attention_heads)
+            )
 
-        self.border_rnn = torch.nn.LSTM(hidden_channels, hidden_channels, 1)
+        # Sequence modeling
+        self.sequence_model = torch.nn.LSTM(hidden_feature_dim, hidden_feature_dim, 1)
 
-        self.reduction = nn.Sequential(
+        # Feature transformation layers
+        self.feature_transformer = nn.Sequential(
             nn.Linear(954, 2048),
             nn.ReLU(),
-            nn.Dropout(dropout_rate),
+            nn.Dropout(dropout_prob),
             nn.Linear(2048, 512),
             nn.ReLU(),
-            nn.Dropout(dropout_rate),
+            nn.Dropout(dropout_prob),
             nn.Linear(512, 256),
             nn.ReLU(),
         )
 
-        self.reduction2 = nn.Sequential(
+        self.feature_transformer_2 = nn.Sequential(
             nn.Linear(954, 2048),
             nn.ReLU(),
-            nn.Dropout(dropout_rate),
+            nn.Dropout(dropout_prob),
             nn.Linear(2048, 512),
             nn.ReLU(),
-            nn.Dropout(dropout_rate),
+            nn.Dropout(dropout_prob),
             nn.Linear(512, 78),
             nn.ReLU(),
         )
 
-        self.pool1 = DualAttention(hidden_channels, num_heads=heads)
-        self.pool2 = DualAttention(hidden_channels, num_heads=heads)
+        # Attention pooling layers
+        self.sequence_attention = DualAttention(hidden_feature_dim, num_attention_heads)
+        self.graph_attention = DualAttention(hidden_feature_dim, num_attention_heads)
 
-        self.final = nn.Sequential(
-            nn.Linear(4 * hidden_channels + 256, middle_channels),
+        # Final prediction layers
+        self.prediction_head = nn.Sequential(
+            nn.Linear(4 * hidden_feature_dim + 256, intermediate_dim),
             nn.ReLU(),
-            nn.Linear(middle_channels, out_channels),
+            nn.Linear(intermediate_dim, output_dim),
         )
 
-    def _forward_molecules(self, conv, x, edge_index, batch, states):
-        gcn_hidden = conv(x, edge_index)
-        rnn_out, (hidden_state, cell_state) = self.border_rnn(gcn_hidden.unsqueeze(0), states)
-        rnn_out = rnn_out.squeeze(0)
-        return gcn_hidden, rnn_out, (hidden_state, cell_state)
+    def process_molecular_features(self, conv_layer, features, edge_index, batch, hidden_states):
+        graph_features = conv_layer(features, edge_index)
+        sequence_output, (hidden_state, cell_state) = self.sequence_model(graph_features.unsqueeze(0), hidden_states)
+        sequence_output = sequence_output.squeeze(0)
+        return graph_features, sequence_output, (hidden_state, cell_state)
 
-    def forward(self, molecules_left, molecules_right):
-        x1, edge_index1, batch1, cell, mask1 = (
-            molecules_left.x,
-            molecules_left.edge_index,
-            molecules_left.batch,
-            molecules_left.cell,
-            molecules_left.mask,
-        )
-        x2, edge_index2, batch2, mask2 = (
-            molecules_right.x,
-            molecules_right.edge_index,
-            molecules_right.batch,
-            molecules_right.mask,
-        )
-        cell = F.normalize(cell, 2, 1)
-        cell_expand = self.reduction2(cell).unsqueeze(1)
-        cell_expand = cell_expand.expand(cell.shape[0], 100, -1).reshape(-1, 78)
-        cell = self.reduction(cell)
+    def forward(self, left_molecule, right_molecule):
+        # Extract input features
+        left_features = left_molecule.x
+        left_edge_index = left_molecule.edge_index
+        left_batch = left_molecule.batch
+        cell_features = left_molecule.cell
+        left_mask = left_molecule.mask
 
-        batch_size = torch.max(molecules_left.batch) + 1
-        mask1, mask2 = mask1.reshape(batch_size, 100), mask2.reshape(batch_size, 100)
-        left_states, right_states = None, None
-        gcn_hidden_left = molecules_left.x + cell_expand
-        gcn_hidden_right = molecules_right.x + cell_expand
+        right_features = right_molecule.x
+        right_edge_index = right_molecule.edge_index
+        right_batch = right_molecule.batch
+        right_mask = right_molecule.mask
 
-        for conv in self.graph_convolutions:
-            gcn_hidden_left, rnn_out_left, left_states = self._forward_molecules(
-                conv, gcn_hidden_left, molecules_left.edge_index, molecules_left.batch, left_states
+        # Process cell features
+        cell_features = F.normalize(cell_features, 2, 1)
+        expanded_cell = self.feature_transformer_2(cell_features).unsqueeze(1)
+        expanded_cell = expanded_cell.expand(cell_features.shape[0], 100, -1).reshape(-1, 78)
+        transformed_cell = self.feature_transformer(cell_features)
+
+        # Prepare masks
+        batch_size = torch.max(left_molecule.batch) + 1
+        left_mask = left_mask.reshape(batch_size, 100)
+        right_mask = right_mask.reshape(batch_size, 100)
+
+        # Initialize states
+        left_states = right_states = None
+        left_graph_features = left_features + expanded_cell
+        right_graph_features = right_features + expanded_cell
+
+        # Process through graph layers
+        for conv_layer in self.graph_attention_layers:
+            left_graph_features, left_sequence, left_states = self.process_molecular_features(
+                conv_layer, left_graph_features, left_edge_index, left_batch, left_states
             )
-            gcn_hidden_right, rnn_out_right, right_states = self._forward_molecules(
-                conv, gcn_hidden_right, molecules_right.edge_index, molecules_right.batch, right_states
+            right_graph_features, right_sequence, right_states = self.process_molecular_features(
+                conv_layer, right_graph_features, right_edge_index, right_batch, right_states
             )
 
-        rnn_out_left, rnn_out_right = (
-            rnn_out_left.reshape(batch_size, 100, -1),
-            rnn_out_right.reshape(batch_size, 100, -1),
+        # Reshape sequence outputs
+        left_sequence = left_sequence.reshape(batch_size, 100, -1)
+        right_sequence = right_sequence.reshape(batch_size, 100, -1)
+
+        # Apply attention pooling
+        pooled_sequence_left, pooled_sequence_right = self.sequence_attention(
+            left_sequence, right_sequence, (left_mask, right_mask)
         )
-        rnn_pooled_left, rnn_pooled_right = self.pool1(rnn_out_left, rnn_out_right, (mask1, mask2))
-        gcn_hidden_left, gcn_hidden_right = (
-            gcn_hidden_left.reshape(batch_size, 100, -1),
-            gcn_hidden_right.reshape(batch_size, 100, -1),
+
+        # Process graph features
+        left_graph_features = left_graph_features.reshape(batch_size, 100, -1)
+        right_graph_features = right_graph_features.reshape(batch_size, 100, -1)
+        pooled_graph_left, pooled_graph_right = self.graph_attention(
+            left_graph_features, right_graph_features, (left_mask, right_mask)
         )
-        gcn_hidden_left, gcn_hidden_right = self.pool2(gcn_hidden_left, gcn_hidden_right, (mask1, mask2))
-        shared_graph_level = torch.cat([gcn_hidden_left, gcn_hidden_right], dim=1)
-        out = torch.cat([shared_graph_level, rnn_pooled_left, rnn_pooled_right, cell], dim=1)
-        out = self.final(out)
-        return out
+
+        # Combine features and make prediction
+        graph_level_features = torch.cat([pooled_graph_left, pooled_graph_right], dim=1)
+        combined_features = torch.cat([graph_level_features, pooled_sequence_left, pooled_sequence_right, transformed_cell], dim=1)
+        prediction = self.prediction_head(combined_features)
+
+        return prediction

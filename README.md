@@ -1,6 +1,6 @@
 # DPASyn
 
-This repository contains the source code for the paper **"DPASyn: Mechanism-Aware Drug Synergy Prediction via Dual Attention and Precision-Aware Quantization"**, This paper is available at [here](https://arxiv.org/abs/2505.19144).
+This repository contains the source code for the paper **"DPASyn: Mechanism-Aware Drug Synergy Prediction via Dual Attention and Precision-Aware Quantization"**.
 
 
 
@@ -13,22 +13,6 @@ Drug combinations are essential in cancer therapy, leveraging synergistic drug-d
 ## ✨ Comparison
 
 ![result](./assets/cmp.png)
-
-
-
-## 🔧 Installation
-
-**Prerequisites** 
-
-Make sure you have Python 3.8+ and either `pip` or `conda` installed.
-
-**Using pip** 
-
-Install dependencies via pip:
-
-```bash
-pip install -r requirements.txt
-```
 
 
 ## 🔨 Getting Started

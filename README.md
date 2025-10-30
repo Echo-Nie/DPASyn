@@ -1,6 +1,8 @@
 # DPASyn
 
-This repository contains the source code for the paper **"DPASyn: Mechanism-Aware Drug Synergy Prediction via Dual Attention and Precision-Aware Quantization"**.
+This repository provides the official implementation of the paper **DPASyn: Mechanism-Aware Drug Synergy Prediction via Dual Attention and Precision-Aware Quantization**, accepted at **IEEE BIBM 2025**.  
+The preprint is available on [arXiv:2505.19144](https://arxiv.org/abs/2505.19144).
+
 
 
 ## 🌟 Abstract
@@ -42,3 +44,5 @@ If you have any questions or need further assistance, feel free to reach out via
 ## 🙌 Acknowledgements
 
 We gratefully acknowledge the support from the Yunnan Provincial Basic Research Youth Project. We also thank our teacher for guidance and [sweetyoungthing](https://github.com/sweetyoungthing) for assistance.
+
+## ✉️

@@ -11,7 +11,7 @@ Drug combinations are essential in cancer therapy, leveraging synergistic drug-d
 
 ## ✨ Comparison
 
-![result](./assets/cmp.png)
+<img src="./assets/cmp.png" alt="result" width="600" height="400">
 
 
 ## 🔨 Getting Started
